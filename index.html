@@ -626,27 +626,40 @@ function switchTab(id, el) {
 async // ── Admin Config ─────────────────────────────────────────────────────────────
 const CFG_KEY = 'cardestco_admin_config'
 
-function loadAdminConfig() {
+async function loadAdminConfig() {
+  let cfg = {}
+  // โหลดจาก Supabase ก่อน
   try {
-    const raw = localStorage.getItem(CFG_KEY)
-    const cfg = raw ? JSON.parse(raw) : {}
-    // ใส่ค่าใน form
-    if(document.getElementById('cfg-basic-price'))
-      document.getElementById('cfg-basic-price').value = cfg.basicPrice || 199
-    if(document.getElementById('cfg-trial-days'))
-      document.getElementById('cfg-trial-days').value  = cfg.trialDays  || 7
-    if(document.getElementById('cfg-promptpay'))
-      document.getElementById('cfg-promptpay').value   = cfg.promptpay  || ''
-    if(document.getElementById('cfg-account-name'))
-      document.getElementById('cfg-account-name').value= cfg.accountName|| ''
-    if(document.getElementById('cfg-easyslip-key'))
-      document.getElementById('cfg-easyslip-key').value= cfg.easyslipKey|| ''
-    // อัปเดต BASIC_PRICE ให้ revenue คำนวณถูก
-    if(cfg.basicPrice) window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
+    const res = await fetch(
+      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(SUPER_ADMIN.email)+'&select=data',
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
+    )
+    const rows = await res.json()
+    if(Array.isArray(rows)&&rows[0]?.data?.adminConfig) {
+      cfg = rows[0].data.adminConfig
+      // sync กลับ localStorage
+      try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
+    }
   } catch(e) {}
+  // fallback localStorage
+  if(!cfg.basicPrice) {
+    try { const raw=localStorage.getItem(CFG_KEY); if(raw) cfg=JSON.parse(raw) } catch(e) {}
+  }
+  // ใส่ค่าใน form
+  if(document.getElementById('cfg-basic-price'))
+    document.getElementById('cfg-basic-price').value = cfg.basicPrice || 199
+  if(document.getElementById('cfg-trial-days'))
+    document.getElementById('cfg-trial-days').value  = cfg.trialDays  || 7
+  if(document.getElementById('cfg-promptpay'))
+    document.getElementById('cfg-promptpay').value   = cfg.promptpay  || ''
+  if(document.getElementById('cfg-account-name'))
+    document.getElementById('cfg-account-name').value= cfg.accountName|| ''
+  if(document.getElementById('cfg-easyslip-key'))
+    document.getElementById('cfg-easyslip-key').value= cfg.easyslipKey|| ''
+  if(cfg.basicPrice) window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
 }
 
-function saveAdminConfig() {
+async function saveAdminConfig() {
   const cfg = {
     basicPrice:  parseInt(document.getElementById('cfg-basic-price')?.value) || 199,
     trialDays:   parseInt(document.getElementById('cfg-trial-days')?.value)  || 7,
@@ -654,8 +667,28 @@ function saveAdminConfig() {
     accountName: document.getElementById('cfg-account-name')?.value?.trim()  || '',
     easyslipKey: document.getElementById('cfg-easyslip-key')?.value?.trim()  || '',
   }
+  // บันทึก localStorage
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
   window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
+
+  // บันทึกขึ้น Supabase — เก็บใน shop_data ของ admin account
+  try {
+    const adminEmail = SUPER_ADMIN.email
+    const getRes = await fetch(
+      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(adminEmail)+'&select=data',
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
+    )
+    const rows = await getRes.json()
+    const shopData = (Array.isArray(rows)&&rows[0]?.data)||{}
+    shopData.adminConfig = cfg
+    await fetch(SUPABASE_URL+'/rest/v1/shop_data',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({shop_id:adminEmail,data:shopData,updated_at:new Date().toISOString()})
+    })
+  } catch(e){ console.warn('saveAdminConfig Supabase failed:',e) }
+
   const msg = document.getElementById('cfg-save-msg')
   if(msg){ msg.style.display='block'; setTimeout(()=>msg.style.display='none', 2000) }
   showToast('✅ บันทึกการตั้งค่าแล้ว')
