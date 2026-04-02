@@ -1095,24 +1095,44 @@ function openReset(email, name) {
   document.getElementById('modal-reset').classList.add('show')
 }
 
-async function confirmReset() {
-  const newPass = document.getElementById('reset-new-pass').value
-  if (!newPass || newPass.length < 8) { showToast('Password must be at least 8 characters', 'var(--orange)'); return }
-  try {
-    // อัปเดต Supabase users table
-    await getSB().from('users')
-      .update({ password: newPass, updated_at: new Date().toISOString() })
-      .eq('email', _actionEmail)
+async function hashPasswordAdmin(password) {
+  const encoder = new TextEncoder()
+  const data    = encoder.encode(password)
+  const hash    = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
 
-    // fallback localStorage
-    const usersRaw = localStorage.getItem('cv_users')
-    const users = usersRaw ? JSON.parse(usersRaw) : {}
-    if (users[_actionEmail]) {
-      users[_actionEmail].password = newPass
-      localStorage.setItem('cv_users', JSON.stringify(users))
+async function confirmReset() {
+  const newPass = document.getElementById('reset-new-pass').value.trim()
+  if (!newPass || newPass.length < 8) { showToast('Password ต้องมีอย่างน้อย 8 ตัวอักษร', 'var(--orange)'); return }
+  try {
+    // Hash password ก่อน save
+    const hashedPass = await hashPasswordAdmin(newPass)
+
+    // ดึง shop_data แล้ว update userInfo.password
+    const getRes = await fetch(
+      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(_actionEmail)+'&select=data',
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
+    )
+    const rows = await getRes.json()
+    if (!Array.isArray(rows) || rows.length === 0) {
+      showToast('ไม่พบ user นี้ใน Supabase', 'var(--orange)'); return
     }
-    logActivity(`🔑 Reset password for ${_actionName} (${_actionEmail})`)
-    showToast(`🔑 Password reset for ${_actionName}`)
+    const shopData = rows[0].data || {}
+    if (!shopData.userInfo) shopData.userInfo = {}
+    shopData.userInfo.password = hashedPass
+
+    await fetch(SUPABASE_URL+'/rest/v1/shop_data', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON, 'Authorization': 'Bearer '+SUPABASE_ANON,
+        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({ shop_id: _actionEmail, data: shopData, updated_at: new Date().toISOString() })
+    })
+
+    logActivity('Reset password for ' + _actionName + ' (' + _actionEmail + ')')
+    showToast('Reset password สำเร็จ — ' + _actionName)
     closeModal('reset')
   } catch(e) { showToast('Error: ' + e.message, 'var(--red)') }
 }
