@@ -157,6 +157,7 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
       <div class="nav-tab" onclick="switchTab('shops',this)">🏪 Shops</div>
       <div class="nav-tab" onclick="switchTab('revenue',this)">💰 Revenue</div>
       <div class="nav-tab" onclick="switchTab('activity',this)">📋 Activity</div>
+      <div class="nav-tab" onclick="switchTab('settings',this)">⚙️ Settings</div>
     </div>
 
     <!-- ── Dashboard ── -->
@@ -348,6 +349,57 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
     <div class="modal-actions">
       <button class="btn-sm" onclick="closeModal('reset')" style="border-color:var(--border2);color:var(--text2)">Cancel</button>
       <button class="btn-sm btn-reset" onclick="confirmReset()">🔑 Reset</button>
+    <!-- ── Settings ── -->
+    <div id="tab-settings" class="tab-content" style="display:none">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">⚙️ Subscription Settings</span></div>
+        <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0">
+
+          <!-- Pricing -->
+          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">💰 Pricing</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <label style="font-size:12px;color:var(--text2);width:160px">Basic Plan (฿/เดือน)</label>
+              <input type="number" id="cfg-basic-price" value="199" min="0" style="width:100px;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
+              <span style="font-size:11px;color:var(--text3)">ใช้คำนวณ Revenue Dashboard</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <label style="font-size:12px;color:var(--text2);width:160px">Trial Period (วัน)</label>
+              <input type="number" id="cfg-trial-days" value="7" min="1" max="30" style="width:100px;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+
+          <!-- PromptPay / Bank -->
+          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">🏦 บัญชีรับเงิน</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <label style="font-size:12px;color:var(--text2);width:160px">PromptPay / เบอร์</label>
+              <input type="text" id="cfg-promptpay" placeholder="0812345678" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <label style="font-size:12px;color:var(--text2);width:160px">ชื่อบัญชี</label>
+              <input type="text" id="cfg-account-name" placeholder="ชื่อ-นามสกุล" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px">
+            </div>
+          </div>
+
+          <!-- EasySlip -->
+          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🧾 EasySlip API</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:12px">สำหรับ validate สลิปอัตโนมัติ</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <label style="font-size:12px;color:var(--text2);width:160px">API Key</label>
+              <input type="password" id="cfg-easyslip-key" placeholder="ESK_xxxxxxxxxxxx" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
+              <button onclick="toggleCfgKey()" style="background:transparent;border:1px solid var(--border2);border-radius:6px;padding:6px 10px;cursor:pointer;color:var(--text2);font-size:12px">👁</button>
+            </div>
+          </div>
+
+          <!-- Save button -->
+          <button class="btn-sm btn-approve" onclick="saveAdminConfig()" style="width:100%;padding:10px;font-size:13px">💾 บันทึกการตั้งค่า</button>
+          <div id="cfg-save-msg" style="text-align:center;font-size:12px;color:var(--green);display:none">✅ บันทึกแล้ว</div>
+        </div>
+      </div>
+    </div>
+
     </div>
   </div>
 </div>
@@ -519,6 +571,7 @@ function doAdminLogin() {
       document.getElementById('loginScreen').style.display = 'none'
       document.getElementById('appScreen').style.display = 'block'
       document.getElementById('adminName').textContent = SUPER_ADMIN.name
+      loadAdminConfig()
       alert.style.display = 'none'
       logActivity('🔐 Admin logged in')
       renderAll()
@@ -552,6 +605,53 @@ function switchTab(id, el) {
 }
 
 // ── Render All ───────────────────────────────────────────────────────────
+async // ── Admin Config ─────────────────────────────────────────────────────────────
+const CFG_KEY = 'cardestco_admin_config'
+
+function loadAdminConfig() {
+  try {
+    const raw = localStorage.getItem(CFG_KEY)
+    const cfg = raw ? JSON.parse(raw) : {}
+    // ใส่ค่าใน form
+    if(document.getElementById('cfg-basic-price'))
+      document.getElementById('cfg-basic-price').value = cfg.basicPrice || 199
+    if(document.getElementById('cfg-trial-days'))
+      document.getElementById('cfg-trial-days').value  = cfg.trialDays  || 7
+    if(document.getElementById('cfg-promptpay'))
+      document.getElementById('cfg-promptpay').value   = cfg.promptpay  || ''
+    if(document.getElementById('cfg-account-name'))
+      document.getElementById('cfg-account-name').value= cfg.accountName|| ''
+    if(document.getElementById('cfg-easyslip-key'))
+      document.getElementById('cfg-easyslip-key').value= cfg.easyslipKey|| ''
+    // อัปเดต BASIC_PRICE ให้ revenue คำนวณถูก
+    if(cfg.basicPrice) window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
+  } catch(e) {}
+}
+
+function saveAdminConfig() {
+  const cfg = {
+    basicPrice:  parseInt(document.getElementById('cfg-basic-price')?.value) || 199,
+    trialDays:   parseInt(document.getElementById('cfg-trial-days')?.value)  || 7,
+    promptpay:   document.getElementById('cfg-promptpay')?.value?.trim()     || '',
+    accountName: document.getElementById('cfg-account-name')?.value?.trim()  || '',
+    easyslipKey: document.getElementById('cfg-easyslip-key')?.value?.trim()  || '',
+  }
+  try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
+  window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
+  const msg = document.getElementById('cfg-save-msg')
+  if(msg){ msg.style.display='block'; setTimeout(()=>msg.style.display='none', 2000) }
+  showToast('✅ บันทึกการตั้งค่าแล้ว')
+}
+
+function toggleCfgKey() {
+  const inp = document.getElementById('cfg-easyslip-key')
+  if(inp) inp.type = inp.type === 'password' ? 'text' : 'password'
+}
+
+function getBasicPrice() {
+  return window.BASIC_PRICE_DYNAMIC || BASIC_PRICE
+}
+
 async function renderAll() {
   const shops = await loadShopsFromSupabase()
   renderDashboard(shops)
@@ -573,7 +673,7 @@ function renderDashboard(shops) {
     const d = new Date(s.subStart)
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
-  const totalRev = basic.length * BASIC_PRICE
+  const totalRev = basic.length * getBasicPrice()
   const monthRev = thisMonth.length * BASIC_PRICE
 
   document.getElementById('kpi-total-shops').textContent = shops.length
@@ -647,66 +747,76 @@ function renderShopsTable() {
 }
 
 // ── Revenue ──────────────────────────────────────────────────────────────
-function renderRevenue(shops) {
-  const basic = shops.filter(s => s.status === 'basic')
-  const total = basic.length * BASIC_PRICE
+async function renderRevenue(shops) {
+  // ดึง payments จาก Supabase
+  let payments = []
+  try {
+    const res = await fetch(
+      SUPABASE_URL+'/rest/v1/payments?select=*&order=paid_at.desc',
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
+    )
+    payments = await res.json()
+    if(!Array.isArray(payments)) payments = []
+  } catch(e) { payments = [] }
+
   const now   = new Date()
+  const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')
 
-  // Monthly breakdown (last 6 months)
-  const monthly = {}
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1)
+  // KPI
+  const totalRev  = payments.reduce((s,p)=>s+(p.total||0),0)
+  const monthPay  = payments.filter(p=>(p.paid_at||'').startsWith(thisMonth))
+  const monthRev  = monthPay.reduce((s,p)=>s+(p.total||0),0)
+  const basic     = shops.filter(s=>s.status==='basic')
+
+  const setSafe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v }
+  setSafe('rev-total',   fmtMoney(totalRev))
+  setSafe('rev-month',   fmtMoney(monthRev))
+  setSafe('rev-active',  basic.length)
+  setSafe('rev-avg',     payments.length>0 ? fmtMoney(Math.round(totalRev/payments.length)) : fmtMoney(0))
+
+  // Monthly chart — 6 เดือนย้อนหลัง
+  const months = []
+  for(let i=5;i>=0;i--){
+    const d   = new Date(now.getFullYear(), now.getMonth()-i, 1)
     const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
-    monthly[key] = 0
+    const label = d.toLocaleDateString('th-TH',{month:'short',year:'2-digit'})
+    const rev   = payments.filter(p=>(p.paid_at||'').startsWith(key)).reduce((s,p)=>s+(p.total||0),0)
+    months.push({key,label,rev})
   }
-  shops.filter(s => s.subStart).forEach(s => {
-    const d = new Date(s.subStart)
-    const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
-    if (key in monthly) monthly[key] += BASIC_PRICE
-  })
-
-  const thisKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')
-  const monthRev = monthly[thisKey] || 0
-  const avg = basic.length > 0 ? BASIC_PRICE : 0
-
-  const MONTH_EN = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-  document.getElementById('rev-total').textContent = fmtMoney(total)
-  document.getElementById('rev-month').textContent = fmtMoney(monthRev)
-  document.getElementById('rev-month-label').textContent = MONTH_EN[now.getMonth()+1] + ' ' + now.getFullYear()
-  document.getElementById('rev-subs').textContent = basic.length
-  document.getElementById('rev-avg').textContent = fmtMoney(avg)
-
-  const maxVal = Math.max(...Object.values(monthly), 1)
-  document.getElementById('rev-chart').innerHTML = Object.entries(monthly).map(([k, v]) => {
-    const [y, m] = k.split('-')
-    const pct = Math.round((v/maxVal)*100)
-    return `<div class="rev-bar-row">
-      <div class="rev-bar-label">${MONTH_EN[parseInt(m)]}</div>
-      <div class="rev-bar-track"><div class="rev-bar-fill" style="width:${pct}%"></div></div>
-      <div class="rev-bar-val">${fmtMoney(v)}</div>
-    </div>`
-  }).join('')
+  const maxRev = Math.max(...months.map(m=>m.rev), 1)
+  const chartEl = document.getElementById('rev-chart')
+  if(chartEl){
+    chartEl.innerHTML = '<div style="display:flex;align-items:flex-end;gap:8px;height:80px;padding:0 4px">' +
+      months.map(m=>{
+        const h = Math.round((m.rev/maxRev)*70)+10
+        const isThis = m.key===thisMonth
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">' +
+          '<div style="font-size:9px;color:var(--text3);font-family:var(--mono)">'+fmtMoney(m.rev)+'</div>' +
+          '<div style="width:100%;height:'+h+'px;background:'+(isThis?'var(--accent)':'rgba(124,109,250,0.3)')+';border-radius:4px 4px 0 0"></div>' +
+          '<div style="font-size:9px;color:var(--text3)">'+m.label+'</div>' +
+          '</div>'
+      }).join('') + '</div>'
+  }
 
   // Payments table
   const tbody = document.getElementById('payments-table')
-  const paidShops = shops.filter(s => s.status === 'basic' && s.subStart)
-  tbody.innerHTML = paidShops.length === 0
-    ? '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">No payments yet</td></tr>'
-    : paidShops.map(s => `<tr>
-        <td style="font-weight:600">${s.shop}</td>
-        <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${s.email}</td>
-        <td><span class="badge badge-active">Basic</span></td>
-        <td style="font-family:var(--mono);color:var(--yellow)">${fmtMoney(BASIC_PRICE)}/mo</td>
-        <td style="font-family:var(--mono);font-size:12px;color:var(--text3)">${fmtDate(s.subStart)}</td>
-        <td><span class="badge badge-active">✓ Active</span></td>
-      </tr>`).join('')
-}
-
-// ── Activity Log ─────────────────────────────────────────────────────────
-function logActivity(msg) {
-  const ts = new Date().toLocaleTimeString()
-  activityLog.unshift({ ts, msg })
-  if (activityLog.length > 100) activityLog.pop()
+  if(tbody){
+    if(payments.length===0){
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">ยังไม่มีรายการ</td></tr>'
+    } else {
+      tbody.innerHTML = payments.slice(0,50).map(p=>{
+        const d = p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-'
+        return '<tr>'+
+          '<td style="font-weight:600">'+escHtml(p.shop_name||p.shop_id||'-')+'</td>'+
+          '<td style="font-size:11px;color:var(--text3);font-family:var(--mono)">'+escHtml(p.shop_id||'-')+'</td>'+
+          '<td><span style="background:rgba(74,222,128,0.12);color:var(--green);padding:2px 8px;border-radius:10px;font-size:11px">Basic</span></td>'+
+          '<td style="font-family:var(--mono);color:var(--yellow);font-weight:700">'+fmtMoney(p.total||0)+'</td>'+
+          '<td style="font-family:var(--mono);font-size:11px;color:var(--text3)">'+d+'</td>'+
+          '<td><span style="background:rgba(74,222,128,0.12);color:var(--green);font-size:11px;padding:2px 8px;border-radius:10px">Paid</span></td>'+
+          '</tr>'
+      }).join('')
+    }
+  }
 }
 
 function renderActivityLog() {
@@ -735,6 +845,87 @@ function openApprove(email, name) {
   const emailGroup = document.getElementById('approve-email-group')
   if(emailGroup) emailGroup.style.display = 'none'
   document.getElementById('modal-approve').classList.add('show')
+}
+
+function openManualApprove() {
+  _actionEmail = ''
+  _actionName  = 'Manual Entry'
+  document.getElementById('approve-shop-name').textContent = '(กรอก Email ด้านล่าง)'
+  document.getElementById('approve-months').value = '1'
+  const emailGroup = document.getElementById('approve-email-group')
+  if(emailGroup) { emailGroup.style.display='block'; document.getElementById('approve-email-input').value='' }
+  document.getElementById('modal-approve').classList.add('show')
+}
+
+async function confirmApprove() {
+  const months = parseInt(document.getElementById('approve-months').value) || 1
+  const emailInput = document.getElementById('approve-email-input')
+  if (!_actionEmail && emailInput && emailInput.value.trim()) {
+    _actionEmail = emailInput.value.trim().toLowerCase()
+    _actionName  = _actionEmail
+  }
+  if (!_actionEmail) { showToast('กรุณากรอก Email', 'var(--orange)'); return }
+
+  const price = getBasicPrice()   // ราคาจาก Settings
+  try {
+    const now       = Date.now()
+    const subExpiry = now + months * 31 * 24 * 60 * 60 * 1000
+    const effDate   = new Date(now).toISOString()
+    const expDate   = new Date(subExpiry).toISOString()
+
+    // 1. update shop_data.trialData
+    const getRes = await fetch(
+      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(_actionEmail)+'&select=data',
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
+    )
+    const rows = await getRes.json()
+    const shopData = (Array.isArray(rows)&&rows[0]?.data)||{}
+    shopData.trialData = {
+      ...(shopData.trialData||{}),
+      subscribed:true, suspended:false,
+      subStart:now, subExpiry, status:'basic', pendingApproval:false
+    }
+    await fetch(SUPABASE_URL+'/rest/v1/shop_data',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({shop_id:_actionEmail,data:shopData,updated_at:new Date().toISOString()})
+    })
+
+    // 2. update subscriptions table
+    await fetch(SUPABASE_URL+'/rest/v1/subscriptions',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({
+        shop_id:_actionEmail, status:'basic',
+        effective_date:effDate, expiration_date:expDate,
+        updated_at:new Date().toISOString()
+      })
+    })
+
+    // 3. บันทึก payment record
+    await fetch(SUPABASE_URL+'/rest/v1/payments',{
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({
+        shop_id:     _actionEmail,
+        shop_name:   _actionName,
+        plan:        'basic',
+        amount:      price,
+        months:      months,
+        total:       price * months,
+        paid_at:     new Date().toISOString(),
+        approved_by: SUPER_ADMIN.email,
+        note:        'Manual approve by admin'
+      })
+    })
+
+    logActivity('Approved Basic ('+months+'mo ฿'+price+'×'+months+'=฿'+(price*months)+') for '+_actionName+' ('+_actionEmail+')')
+    showToast('Approved '+_actionName+' — Basic '+months+' month(s) ฿'+(price*months))
+    closeModal('approve'); renderAll()
+  } catch(e) { showToast('Error: '+e.message, 'var(--red)') }
 }
 
 function openManualApprove() {
