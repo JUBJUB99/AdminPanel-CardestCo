@@ -58,7 +58,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:1
 
 /* ── Panel ── */
 .panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
-.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
 .panel-title{font-size:15px;font-weight:700}
 #tab-settings .panel{max-width:700px;}
 
@@ -113,12 +113,28 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
 
 .tab-content{display:none}
 .tab-content.active{display:block}
+
+/* ── Loading spinner ── */
+.loading-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:99998}
+.loading-overlay.show{display:flex}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent2);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Confirm modal ── */
+.confirm-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:28px;width:100%;max-width:380px;text-align:center}
+.confirm-modal h3{margin-bottom:10px;font-size:17px}
+.confirm-modal p{font-size:13px;color:var(--text2);margin-bottom:20px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
 <div id="toast"></div>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
 
 <!-- ── Login ── -->
 <div id="loginScreen">
@@ -208,6 +224,7 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
       <div class="panel">
         <div class="panel-head">
           <span class="panel-title">🆕 Recent Registrations</span>
+          <button class="btn-sm btn-reset" onclick="renderAll()" style="font-size:11px;padding:4px 10px">🔄 Refresh</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -235,8 +252,11 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
       <div class="panel">
         <div class="panel-head">
           <span class="panel-title">🏪 All Shops</span>
-          <button class="btn-sm btn-approve" onclick="openManualApprove()" style="font-size:11px;padding:4px 10px">+ Manual Approve</button>
-          <span id="shop-count" style="font-size:12px;color:var(--text3);font-family:var(--mono)"></span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn-sm btn-approve" onclick="openManualApprove()" style="font-size:11px;padding:4px 10px">+ Manual Approve</button>
+            <button class="btn-sm btn-reset" onclick="renderAll()" style="font-size:11px;padding:4px 10px">🔄 Refresh</button>
+            <span id="shop-count" style="font-size:12px;color:var(--text3);font-family:var(--mono)"></span>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -270,21 +290,24 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
         <div class="kpi-card" style="--c:var(--accent2)">
           <div class="kpi-label">AVG PER SHOP</div>
           <div class="kpi-val" id="rev-avg" style="color:var(--accent2)">฿0</div>
-          <div class="kpi-sub">Monthly avg</div>
+          <div class="kpi-sub">Per payment avg</div>
         </div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><span class="panel-title">📈 Monthly Revenue</span></div>
+        <div class="panel-head"><span class="panel-title">📈 Monthly Revenue (6 months)</span></div>
         <div id="rev-chart" style="padding:8px 0"></div>
       </div>
 
       <div class="panel">
-        <div class="panel-head"><span class="panel-title">💳 Subscription Payments</span></div>
+        <div class="panel-head">
+          <span class="panel-title">💳 Subscription Payments</span>
+          <span id="payments-count" style="font-size:12px;color:var(--text3);font-family:var(--mono)"></span>
+        </div>
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th>SHOP</th><th>EMAIL</th><th>PLAN</th><th>AMOUNT</th><th>DATE</th><th>STATUS</th>
+              <th>SHOP</th><th>EMAIL</th><th>PLAN</th><th>MONTHS</th><th>AMOUNT</th><th>DATE</th><th>BY</th>
             </tr></thead>
             <tbody id="payments-table"></tbody>
           </table>
@@ -297,14 +320,14 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
       <div class="panel">
         <div class="panel-head">
           <span class="panel-title">📋 Activity Log</span>
-          <button class="btn-sm btn-reset" onclick="clearLog()" style="font-size:11px">Clear Log</button>
+          <button class="btn-sm btn-suspend" onclick="clearLog()" style="font-size:11px">🗑 Clear Log</button>
         </div>
         <div id="activity-log" style="font-family:var(--mono);font-size:12px;color:var(--text2);max-height:500px;overflow-y:auto"></div>
       </div>
     </div>
 
     <!-- ── Settings Tab ── -->
-    <div id="tab-settings" class="tab-content" style="display:none">
+    <div id="tab-settings" class="tab-content">
       <div class="panel" style="max-width:700px">
         <div class="panel-head"><span class="panel-title">⚙️ Subscription Settings</span></div>
         <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0">
@@ -334,12 +357,29 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
           <div id="cfg-save-msg" style="text-align:center;font-size:12px;color:var(--green);display:none">✅ บันทึกแล้ว</div>
         </div>
       </div>
+
+      <!-- Change Admin Password -->
+      <div class="panel" style="max-width:700px">
+        <div class="panel-head"><span class="panel-title">🔐 เปลี่ยน Admin Password</span></div>
+        <div style="display:flex;flex-direction:column;gap:12px;padding:4px 0">
+          <div style="display:flex;align-items:center;gap:12px">
+            <label style="font-size:12px;color:var(--text2);width:160px">Password ใหม่</label>
+            <input type="password" id="cfg-new-admin-pass" placeholder="Min 8 characters" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px">
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <label style="font-size:12px;color:var(--text2);width:160px">ยืนยัน Password</label>
+            <input type="password" id="cfg-confirm-admin-pass" placeholder="Repeat password" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px">
+          </div>
+          <button class="btn-sm btn-reset" onclick="changeAdminPassword()" style="width:100%;padding:10px;font-size:13px">🔐 เปลี่ยน Password</button>
+        </div>
+      </div>
     </div>
 
   </div><!-- end .main -->
 </div><!-- end #appScreen -->
 
-<!-- ══════ MODALS (outside appScreen) ══════ -->
+<!-- ══════ MODALS ══════ -->
+
 <!-- ── Approve Modal ── -->
 <div class="modal-overlay" id="modal-approve">
   <div class="modal">
@@ -353,6 +393,7 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
       <label>DURATION (months)</label>
       <input type="number" id="approve-months" value="1" min="1" max="24">
     </div>
+    <div id="approve-price-preview" style="font-size:12px;color:var(--yellow);font-family:var(--mono);margin-top:8px;padding:8px;background:var(--bg3);border-radius:6px;display:none"></div>
     <div class="modal-actions">
       <button class="btn-sm" onclick="closeModal('approve')" style="border-color:var(--border2);color:var(--text2)">Cancel</button>
       <button class="btn-sm btn-approve" onclick="confirmApprove()">✅ Approve</button>
@@ -391,12 +432,12 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
 
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
-const SUPER_ADMIN = {
+let SUPER_ADMIN = {
   email: 'superadmin@cardestco.com',
   password: 'r$4@BCyWXNwtDUSS',
   name: 'Super Admin'
 }
-const BASIC_PRICE = 499  // ฿/month
+const BASIC_PRICE = 499
 
 // ── Supabase Config ───────────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://gqrjpkinevobpzlgwkhc.supabase.co'
@@ -412,37 +453,216 @@ function getSB() {
 
 // ── State ────────────────────────────────────────────────────────────────────
 let adminLoggedIn = false
-let currentAction = null  // { type, email }
 let activityLog = []
-
-// ── Data helpers (reads from Supabase) ─────────────────────────────────
 let _cachedShops = []
-let _cachedUsers  = {}   // email → user obj
+let _actionEmail = '', _actionName = ''
 
+// ── Utility ─────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return ''
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+}
+
+function fmtDate(ts) {
+  if (!ts) return '-'
+  const d = new Date(ts)
+  return d.getDate().toString().padStart(2,'0') + '/' +
+    (d.getMonth()+1).toString().padStart(2,'0') + '/' +
+    d.getFullYear()
+}
+
+function fmtMoney(n) { return '฿' + (n||0).toLocaleString() }
+
+function showLoading(v) {
+  document.getElementById('loadingOverlay').classList.toggle('show', v)
+}
+
+function logActivity(msg) {
+  const now = new Date()
+  const ts = now.toLocaleDateString('th-TH') + ' ' + now.toLocaleTimeString('th-TH')
+  activityLog.unshift({ ts, msg })
+  if (activityLog.length > 200) activityLog = activityLog.slice(0, 200)
+}
+
+// ── Rate limiting ─────────────────────────────────────────────────────────
+let _loginAttempts = 0
+let _loginLockedUntil = 0
+
+// ── Login ─────────────────────────────────────────────────────────────────
+function doAdminLogin() {
+  const now = Date.now()
+  if (_loginLockedUntil > now) {
+    const secs = Math.ceil((_loginLockedUntil - now) / 1000)
+    showAlert('Too many attempts. Try again in ' + secs + 's')
+    return
+  }
+
+  const email = document.getElementById('adminEmail').value.trim()
+  const pass  = document.getElementById('adminPass').value
+  const btn   = document.getElementById('loginBtn')
+
+  if (!email || !pass) { showAlert('Please enter email and password'); return }
+  btn.disabled = true; btn.textContent = 'Logging in...'
+
+  setTimeout(() => {
+    if (email === SUPER_ADMIN.email && pass === SUPER_ADMIN.password) {
+      adminLoggedIn = true
+      _loginAttempts = 0; _loginLockedUntil = 0
+      document.getElementById('loginScreen').style.display = 'none'
+      document.getElementById('appScreen').style.display   = 'block'
+      document.getElementById('adminName').textContent = SUPER_ADMIN.name
+      document.getElementById('loginAlert').style.display = 'none'
+      loadAdminConfig()
+      logActivity('Admin logged in')
+      renderAll()
+    } else {
+      _loginAttempts++
+      if (_loginAttempts >= 5) {
+        _loginLockedUntil = Date.now() + 5 * 60 * 1000
+        showAlert('Too many failed attempts. Locked for 5 minutes.')
+      } else {
+        showAlert('Invalid credentials (' + _loginAttempts + '/5 attempts)')
+      }
+      btn.disabled = false; btn.textContent = 'Login'
+    }
+  }, 600)
+}
+
+function showAlert(msg) {
+  const el = document.getElementById('loginAlert')
+  el.textContent = msg; el.style.display = 'block'
+}
+
+function doLogout() {
+  adminLoggedIn = false
+  document.getElementById('loginScreen').style.display = 'flex'
+  document.getElementById('appScreen').style.display = 'none'
+  document.getElementById('adminEmail').value = ''
+  document.getElementById('adminPass').value = ''
+  document.getElementById('loginBtn').disabled = false
+  document.getElementById('loginBtn').textContent = 'Login'
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────
+function switchTab(id, el) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
+  document.querySelectorAll('.tab-content').forEach(t => {
+    t.style.display = 'none'
+    t.classList.remove('active')
+  })
+  el.classList.add('active')
+  const tab = document.getElementById('tab-' + id)
+  if (tab) { tab.style.display = 'block'; tab.classList.add('active') }
+  if (id !== 'settings') renderAll()
+  if (id === 'settings') loadAdminConfig()
+}
+
+// ── Admin Config ─────────────────────────────────────────────────────────
+const CFG_KEY = 'cardestco_admin_config'
+
+async function loadAdminConfig() {
+  let cfg = {}
+  try {
+    const res = await fetch(
+      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(SUPER_ADMIN.email)+'&select=data',
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
+    )
+    const rows = await res.json()
+    if (Array.isArray(rows) && rows[0]?.data?.adminConfig) {
+      cfg = rows[0].data.adminConfig
+      try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
+    }
+  } catch(e) {}
+  if (!cfg.basicPrice) {
+    try { const raw = localStorage.getItem(CFG_KEY); if (raw) cfg = JSON.parse(raw) } catch(e) {}
+  }
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val }
+  setVal('cfg-basic-price', cfg.basicPrice || 199)
+  setVal('cfg-trial-days', cfg.trialDays || 7)
+  setVal('cfg-promptpay', cfg.promptpay || '')
+  setVal('cfg-account-name', cfg.accountName || '')
+  if (cfg.basicPrice) window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
+}
+
+async function saveAdminConfig() {
+  const cfg = {
+    basicPrice:  parseInt(document.getElementById('cfg-basic-price')?.value) || 199,
+    trialDays:   parseInt(document.getElementById('cfg-trial-days')?.value)  || 7,
+    promptpay:   document.getElementById('cfg-promptpay')?.value?.trim()     || '',
+    accountName: document.getElementById('cfg-account-name')?.value?.trim()  || '',
+  }
+  try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
+  window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
+
+  try {
+    const adminEmail = SUPER_ADMIN.email
+    const getRes = await fetch(
+      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(adminEmail)+'&select=data',
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
+    )
+    const rows = await getRes.json()
+    const shopData = (Array.isArray(rows) && rows[0]?.data) || {}
+    shopData.adminConfig = cfg
+    await fetch(SUPABASE_URL+'/rest/v1/shop_data', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body: JSON.stringify({shop_id: adminEmail, data: shopData, updated_at: new Date().toISOString()})
+    })
+  } catch(e) { console.warn('saveAdminConfig Supabase failed:', e) }
+
+  const msg = document.getElementById('cfg-save-msg')
+  if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 2000) }
+  logActivity('Saved admin config — price: ฿' + cfg.basicPrice + ', trial: ' + cfg.trialDays + 'days')
+  showToast('✅ บันทึกการตั้งค่าแล้ว')
+}
+
+async function changeAdminPassword() {
+  const newPass = document.getElementById('cfg-new-admin-pass')?.value?.trim()
+  const confirmPass = document.getElementById('cfg-confirm-admin-pass')?.value?.trim()
+  if (!newPass || newPass.length < 8) {
+    showToast('Password ต้องมีอย่างน้อย 8 ตัวอักษร', 'var(--orange)'); return
+  }
+  if (newPass !== confirmPass) {
+    showToast('Password ไม่ตรงกัน', 'var(--red)'); return
+  }
+  SUPER_ADMIN.password = newPass
+  document.getElementById('cfg-new-admin-pass').value = ''
+  document.getElementById('cfg-confirm-admin-pass').value = ''
+  logActivity('Admin changed password')
+  showToast('✅ เปลี่ยน Admin Password แล้ว (เฉพาะ session นี้)')
+}
+
+function getBasicPrice() {
+  return window.BASIC_PRICE_DYNAMIC || BASIC_PRICE
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────
 async function loadShopsFromSupabase() {
   try {
-    // ดึง shop_data + subscriptions พร้อมกัน
     const [shopRes, subRes] = await Promise.all([
       fetch(SUPABASE_URL+'/rest/v1/shop_data?select=shop_id,data,updated_at&order=updated_at.desc',
         {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}),
       fetch(SUPABASE_URL+'/rest/v1/subscriptions?select=*',
         {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}})
     ])
-    const rows   = await shopRes.json()
-    const subs   = await subRes.json()
+    const rows = await shopRes.json()
+    const subs = await subRes.json()
 
-    // map subscriptions โดย email
     const subMap = {}
-    ;(Array.isArray(subs)?subs:[]).forEach(s => { subMap[s.shop_id] = s })
+    ;(Array.isArray(subs) ? subs : []).forEach(s => { subMap[s.shop_id] = s })
 
     const shopMap = {}
-    ;(Array.isArray(rows)?rows:[])
+    ;(Array.isArray(rows) ? rows : [])
       .filter(row => row.shop_id !== SUPER_ADMIN.email)
       .forEach(row => {
         const d   = row.data || {}
         const ui  = d.userInfo || {}
         const sub = subMap[row.shop_id] || null
-        // คำนวณ status จาก subscriptions table ก่อน
         let status = 'trial'
         let subExpiry = null, subStart = null
         if (sub) {
@@ -479,7 +699,6 @@ async function loadShopsFromSupabase() {
 }
 
 function getAllShopsLocal() {
-  // fallback localStorage (same machine)
   const shops = []
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -522,169 +741,21 @@ function getStatus(trial) {
   return 'expired'
 }
 
-function fmtDate(ts) {
-  if (!ts) return '-'
-  const d = new Date(ts)
-  return d.getDate().toString().padStart(2,'0') + '/' +
-    (d.getMonth()+1).toString().padStart(2,'0') + '/' +
-    d.getFullYear()
-}
-
-function fmtMoney(n) { return '฿' + (n||0).toLocaleString() }
-
-// ── Login ─────────────────────────────────────────────────────────────────
-// ── Rate limiting ─────────────────────────────────────────────────────────────
-let _loginAttempts = 0
-let _loginLockedUntil = 0
-
-function doAdminLogin() {
-  const now = Date.now()
-  if (_loginLockedUntil > now) {
-    const secs = Math.ceil((_loginLockedUntil - now) / 1000)
-    showAlert('Too many attempts. Try again in ' + secs + 's')
-    return
-  }
-
-  const email = document.getElementById('adminEmail').value.trim()
-  const pass  = document.getElementById('adminPass').value
-  const alert = document.getElementById('loginAlert')
-  const btn   = document.getElementById('loginBtn')
-
-  if (!email || !pass) { showAlert('Please enter email and password'); return }
-  btn.disabled = true; btn.textContent = 'Logging in...'
-
-  setTimeout(() => {
-    if (email === SUPER_ADMIN.email && pass === SUPER_ADMIN.password) {
-      adminLoggedIn = true
-      _loginAttempts = 0; _loginLockedUntil = 0
-      document.getElementById('loginScreen').style.display = 'none'
-      document.getElementById('appScreen').style.display   = 'block'
-      document.getElementById('adminName').textContent = SUPER_ADMIN.name
-      loadAdminConfig()
-      alert.style.display = 'none'
-      logActivity('Admin logged in')
-      renderAll()
-    } else {
-      _loginAttempts++
-      if (_loginAttempts >= 5) {
-        _loginLockedUntil = Date.now() + 5 * 60 * 1000
-        showAlert('Too many failed attempts. Locked for 5 minutes.')
-      } else {
-        showAlert('Invalid credentials (' + _loginAttempts + '/5 attempts)')
-      }
-      btn.disabled = false; btn.textContent = 'Login'
-    }
-  }, 600)
-}
-
-function showAlert(msg) {
-  const el = document.getElementById('loginAlert')
-  el.textContent = msg; el.style.display = 'block'
-}
-
-function doLogout() {
-  adminLoggedIn = false
-  document.getElementById('loginScreen').style.display = 'flex'
-  document.getElementById('appScreen').style.display = 'none'
-  document.getElementById('adminEmail').value = ''
-  document.getElementById('adminPass').value = ''
-}
-
-// ── Tabs ─────────────────────────────────────────────────────────────────
-function switchTab(id, el) {
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'))
-  document.querySelectorAll('.tab-content').forEach(t => { t.style.display='none'; t.classList.remove('active') })
-  el.classList.add('active')
-  const tab = document.getElementById('tab-' + id)
-  if(tab) { tab.style.display='block'; tab.classList.add('active') }
-  if(id !== 'settings') renderAll()
-  if(id === 'settings') loadAdminConfig()
-}
-
-// ── Admin Config ─────────────────────────────────────────────────────────────
-const CFG_KEY = 'cardestco_admin_config'
-
-async function loadAdminConfig() {
-  let cfg = {}
-  // โหลดจาก Supabase ก่อน
-  try {
-    const res = await fetch(
-      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(SUPER_ADMIN.email)+'&select=data',
-      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
-    )
-    const rows = await res.json()
-    if(Array.isArray(rows)&&rows[0]?.data?.adminConfig) {
-      cfg = rows[0].data.adminConfig
-      // sync กลับ localStorage
-      try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
-    }
-  } catch(e) {}
-  // fallback localStorage
-  if(!cfg.basicPrice) {
-    try { const raw=localStorage.getItem(CFG_KEY); if(raw) cfg=JSON.parse(raw) } catch(e) {}
-  }
-  // ใส่ค่าใน form
-  if(document.getElementById('cfg-basic-price'))
-    document.getElementById('cfg-basic-price').value = cfg.basicPrice || 199
-  if(document.getElementById('cfg-trial-days'))
-    document.getElementById('cfg-trial-days').value  = cfg.trialDays  || 7
-  if(document.getElementById('cfg-promptpay'))
-    document.getElementById('cfg-promptpay').value   = cfg.promptpay  || ''
-  if(document.getElementById('cfg-account-name'))
-    document.getElementById('cfg-account-name').value= cfg.accountName|| ''
-  if(document.getElementById('cfg-easyslip-key'))
-    document.getElementById('cfg-easyslip-key').value= cfg.easyslipKey|| ''
-  if(cfg.basicPrice) window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
-}
-
-async function saveAdminConfig() {
-  const cfg = {
-    basicPrice:  parseInt(document.getElementById('cfg-basic-price')?.value) || 199,
-    trialDays:   parseInt(document.getElementById('cfg-trial-days')?.value)  || 7,
-    promptpay:   document.getElementById('cfg-promptpay')?.value?.trim()     || '',
-    accountName: document.getElementById('cfg-account-name')?.value?.trim()  || '',
-  }
-  // บันทึก localStorage
-  try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
-  window.BASIC_PRICE_DYNAMIC = cfg.basicPrice
-
-  // บันทึกขึ้น Supabase — เก็บใน shop_data ของ admin account
-  try {
-    const adminEmail = SUPER_ADMIN.email
-    const getRes = await fetch(
-      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(adminEmail)+'&select=data',
-      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
-    )
-    const rows = await getRes.json()
-    const shopData = (Array.isArray(rows)&&rows[0]?.data)||{}
-    shopData.adminConfig = cfg
-    await fetch(SUPABASE_URL+'/rest/v1/shop_data',{
-      method:'POST',
-      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
-               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({shop_id:adminEmail,data:shopData,updated_at:new Date().toISOString()})
-    })
-  } catch(e){ console.warn('saveAdminConfig Supabase failed:',e) }
-
-  const msg = document.getElementById('cfg-save-msg')
-  if(msg){ msg.style.display='block'; setTimeout(()=>msg.style.display='none', 2000) }
-  showToast('✅ บันทึกการตั้งค่าแล้ว')
-}
-
-
-function getBasicPrice() {
-  return window.BASIC_PRICE_DYNAMIC || BASIC_PRICE
-}
-
+// ── Render all ────────────────────────────────────────────────────────────
 async function renderAll() {
-  const shops = await loadShopsFromSupabase()
-  renderDashboard(shops)
-  renderShopsTable()
-  renderRevenue(shops)
-  renderActivityLog()
+  showLoading(true)
+  try {
+    const shops = await loadShopsFromSupabase()
+    renderDashboard(shops)
+    renderShopsTable()
+    await renderRevenue(shops)
+    renderActivityLog()
+  } finally {
+    showLoading(false)
+  }
 }
 
-// ── Dashboard ────────────────────────────────────────────────────────────
+// ── Dashboard ─────────────────────────────────────────────────────────────
 function renderDashboard(shops) {
   const basic     = shops.filter(s => s.status === 'basic')
   const trial     = shops.filter(s => s.status === 'trial')
@@ -698,24 +769,25 @@ function renderDashboard(shops) {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
   })
   const totalRev = basic.length * getBasicPrice()
-  const monthRev = thisMonth.length * BASIC_PRICE
+  const monthRev = thisMonth.length * getBasicPrice()
 
-  document.getElementById('kpi-total-shops').textContent = shops.length
-  document.getElementById('kpi-active-basic').textContent = basic.length
-  document.getElementById('kpi-trial').textContent = trial.length
-  document.getElementById('kpi-suspended').textContent = suspended.length
-  document.getElementById('kpi-total-rev').textContent = fmtMoney(totalRev)
-  document.getElementById('kpi-month-rev').textContent = fmtMoney(monthRev)
-  document.getElementById('kpi-pending').textContent = pending.length
+  const setSafe = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v }
+  setSafe('kpi-total-shops', shops.length)
+  setSafe('kpi-active-basic', basic.length)
+  setSafe('kpi-trial', trial.length)
+  setSafe('kpi-suspended', suspended.length)
+  setSafe('kpi-total-rev', fmtMoney(totalRev))
+  setSafe('kpi-month-rev', fmtMoney(monthRev))
+  setSafe('kpi-pending', pending.length)
 
-  // Recent registrations (last 5)
+  // Recent 5
   const tbody = document.getElementById('recent-reg-table')
   const recent = shops.slice(0, 5)
   tbody.innerHTML = recent.length === 0
     ? '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">No shops registered yet</td></tr>'
     : recent.map(s => `<tr>
-        <td style="font-weight:600">${s.shop}</td>
-        <td style="color:var(--text3);font-family:var(--mono);font-size:12px">${s.email}</td>
+        <td style="font-weight:600">${escHtml(s.shop)}</td>
+        <td style="color:var(--text3);font-family:var(--mono);font-size:12px">${escHtml(s.email)}</td>
         <td>${statusBadge(s.status)}</td>
         <td style="color:var(--text3);font-family:var(--mono);font-size:12px">${fmtDate(s.registered)}</td>
         <td>${actionButtons(s)}</td>
@@ -724,30 +796,29 @@ function renderDashboard(shops) {
 
 function statusBadge(status) {
   const map = {
-    basic: '<span class="badge badge-active">✓ Basic</span>',
-    trial: '<span class="badge badge-trial">⏳ Trial</span>',
+    basic:     '<span class="badge badge-active">✓ Basic</span>',
+    trial:     '<span class="badge badge-trial">⏳ Trial</span>',
     suspended: '<span class="badge badge-suspended">🚫 Suspended</span>',
-    expired: '<span class="badge badge-expired">✗ Expired</span>',
-    unknown: '<span class="badge badge-expired">? Unknown</span>',
+    expired:   '<span class="badge badge-expired">✗ Expired</span>',
+    unknown:   '<span class="badge badge-expired">? Unknown</span>',
   }
   return map[status] || map.unknown
 }
 
 function actionButtons(shop) {
   const e = encodeURIComponent(shop.email)
-  const name = shop.shop.replace(/'/g, "\\'")
   let btns = ''
   if (shop.status !== 'basic') {
-    btns += `<button class="btn-sm btn-approve" onclick="openApprove('${e}','${name}')">✅ Approve</button> `
+    btns += `<button class="btn-sm btn-approve" data-email="${e}" data-action="approve">✅ Approve</button> `
   }
   if (shop.status !== 'suspended') {
-    btns += `<button class="btn-sm btn-suspend" onclick="openSuspend('${e}','${name}')">🚫 Suspend</button> `
+    btns += `<button class="btn-sm btn-suspend" data-email="${e}" data-action="suspend">🚫 Suspend</button> `
   }
-  btns += `<button class="btn-sm btn-reset" onclick="openReset('${e}','${name}')">🔑 Reset PW</button>`
+  btns += `<button class="btn-sm btn-reset" data-email="${e}" data-action="reset">🔑 Reset PW</button>`
   return `<div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div>`
 }
 
-// ── Shops table ──────────────────────────────────────────────────────────
+// ── Shops table ────────────────────────────────────────────────────────────
 function renderShopsTable() {
   const q      = document.getElementById('shop-search')?.value.toLowerCase() || ''
   const status = document.getElementById('shop-status-filter')?.value || ''
@@ -760,8 +831,8 @@ function renderShopsTable() {
   tbody.innerHTML = shops.length === 0
     ? '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">No shops found</td></tr>'
     : shops.map(s => `<tr>
-        <td style="font-weight:600">${s.shop}</td>
-        <td style="color:var(--text3);font-family:var(--mono);font-size:11px">${s.email}</td>
+        <td style="font-weight:600">${escHtml(s.shop)}</td>
+        <td style="color:var(--text3);font-family:var(--mono);font-size:11px">${escHtml(s.email)}</td>
         <td>${statusBadge(s.status)}</td>
         <td style="font-family:var(--mono);font-size:12px;color:var(--text3)">${s.subExpiry ? fmtDate(s.subExpiry) : '-'}</td>
         <td style="font-family:var(--mono);text-align:center">${s.cards}</td>
@@ -770,9 +841,8 @@ function renderShopsTable() {
       </tr>`).join('')
 }
 
-// ── Revenue ──────────────────────────────────────────────────────────────
+// ── Revenue ────────────────────────────────────────────────────────────────
 async function renderRevenue(shops) {
-  // ดึง payments จาก Supabase
   let payments = []
   try {
     const res = await fetch(
@@ -780,94 +850,102 @@ async function renderRevenue(shops) {
       {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
     )
     payments = await res.json()
-    if(!Array.isArray(payments)) payments = []
+    if (!Array.isArray(payments)) payments = []
   } catch(e) { payments = [] }
 
-  const now   = new Date()
+  const now = new Date()
   const thisMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')
+  const monthLabel = now.toLocaleDateString('th-TH', {month:'long', year:'numeric'})
 
-  // KPI
-  const totalRev  = payments.reduce((s,p)=>s+(p.total||0),0)
-  const monthPay  = payments.filter(p=>(p.paid_at||'').startsWith(thisMonth))
-  const monthRev  = monthPay.reduce((s,p)=>s+(p.total||0),0)
-  const basic     = shops.filter(s=>s.status==='basic')
+  const totalRev = payments.reduce((s,p) => s+(p.total||0), 0)
+  const monthPay = payments.filter(p => (p.paid_at||'').startsWith(thisMonth))
+  const monthRev = monthPay.reduce((s,p) => s+(p.total||0), 0)
+  const basic    = shops.filter(s => s.status === 'basic')
 
-  const setSafe = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v }
-  setSafe('rev-total',   fmtMoney(totalRev))
-  setSafe('rev-month',   fmtMoney(monthRev))
-  setSafe('rev-active',  basic.length)
-  setSafe('rev-avg',     payments.length>0 ? fmtMoney(Math.round(totalRev/payments.length)) : fmtMoney(0))
+  const setSafe = (id,v) => { const el = document.getElementById(id); if (el) el.textContent = v }
+  setSafe('rev-total',       fmtMoney(totalRev))
+  setSafe('rev-month',       fmtMoney(monthRev))
+  setSafe('rev-month-label', monthLabel)
+  setSafe('rev-subs',        basic.length)   // FIX: was 'rev-active' (wrong id)
+  setSafe('rev-avg',         payments.length > 0 ? fmtMoney(Math.round(totalRev / payments.length)) : fmtMoney(0))
 
-  // Monthly chart — 6 เดือนย้อนหลัง
+  const paymentsCountEl = document.getElementById('payments-count')
+  if (paymentsCountEl) paymentsCountEl.textContent = payments.length + ' records'
+
+  // Monthly chart — 6 months
   const months = []
-  for(let i=5;i>=0;i--){
+  for (let i = 5; i >= 0; i--) {
     const d   = new Date(now.getFullYear(), now.getMonth()-i, 1)
     const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')
-    const label = d.toLocaleDateString('th-TH',{month:'short',year:'2-digit'})
-    const rev   = payments.filter(p=>(p.paid_at||'').startsWith(key)).reduce((s,p)=>s+(p.total||0),0)
-    months.push({key,label,rev})
+    const label = d.toLocaleDateString('th-TH', {month:'short', year:'2-digit'})
+    const rev   = payments.filter(p => (p.paid_at||'').startsWith(key)).reduce((s,p) => s+(p.total||0), 0)
+    months.push({key, label, rev})
   }
-  const maxRev = Math.max(...months.map(m=>m.rev), 1)
+  const maxRev = Math.max(...months.map(m => m.rev), 1)
   const chartEl = document.getElementById('rev-chart')
-  if(chartEl){
-    chartEl.innerHTML = '<div style="display:flex;align-items:flex-end;gap:8px;height:80px;padding:0 4px">' +
-      months.map(m=>{
-        const h = Math.round((m.rev/maxRev)*70)+10
-        const isThis = m.key===thisMonth
+  if (chartEl) {
+    chartEl.innerHTML = '<div style="display:flex;align-items:flex-end;gap:8px;height:100px;padding:0 4px">' +
+      months.map(m => {
+        const h = Math.round((m.rev / maxRev) * 80) + 10
+        const isThis = m.key === thisMonth
         return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">' +
-          '<div style="font-size:9px;color:var(--text3);font-family:var(--mono)">'+fmtMoney(m.rev)+'</div>' +
-          '<div style="width:100%;height:'+h+'px;background:'+(isThis?'var(--accent)':'rgba(124,109,250,0.3)')+';border-radius:4px 4px 0 0"></div>' +
-          '<div style="font-size:9px;color:var(--text3)">'+m.label+'</div>' +
+          '<div style="font-size:9px;color:var(--text3);font-family:var(--mono)">' + fmtMoney(m.rev) + '</div>' +
+          '<div style="width:100%;height:'+h+'px;background:'+(isThis?'var(--accent)':'rgba(124,109,250,0.3)')+';border-radius:4px 4px 0 0;transition:height 0.5s"></div>' +
+          '<div style="font-size:9px;color:var(--text3)">' + m.label + '</div>' +
           '</div>'
       }).join('') + '</div>'
   }
 
   // Payments table
   const tbody = document.getElementById('payments-table')
-  if(tbody){
-    if(payments.length===0){
-      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">ยังไม่มีรายการ</td></tr>'
+  if (tbody) {
+    if (payments.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px;font-size:12px">ยังไม่มีรายการ</td></tr>'
     } else {
-      tbody.innerHTML = payments.slice(0,50).map(p=>{
-        const d = p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'}) : '-'
-        return '<tr>'+
-          '<td style="font-weight:600">'+escHtml(p.shop_name||p.shop_id||'-')+'</td>'+
-          '<td style="font-size:11px;color:var(--text3);font-family:var(--mono)">'+escHtml(p.shop_id||'-')+'</td>'+
-          '<td><span style="background:rgba(74,222,128,0.12);color:var(--green);padding:2px 8px;border-radius:10px;font-size:11px">Basic</span></td>'+
-          '<td style="font-family:var(--mono);color:var(--yellow);font-weight:700">'+fmtMoney(p.total||0)+'</td>'+
-          '<td style="font-family:var(--mono);font-size:11px;color:var(--text3)">'+d+'</td>'+
-          '<td><span style="background:rgba(74,222,128,0.12);color:var(--green);font-size:11px;padding:2px 8px;border-radius:10px">Paid</span></td>'+
+      tbody.innerHTML = payments.slice(0, 50).map(p => {
+        const d = p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH', {day:'numeric',month:'short',year:'2-digit'}) : '-'
+        return '<tr>' +
+          '<td style="font-weight:600">' + escHtml(p.shop_name||p.shop_id||'-') + '</td>' +
+          '<td style="font-size:11px;color:var(--text3);font-family:var(--mono)">' + escHtml(p.shop_id||'-') + '</td>' +
+          '<td><span style="background:rgba(74,222,128,0.12);color:var(--green);padding:2px 8px;border-radius:10px;font-size:11px">Basic</span></td>' +
+          '<td style="font-family:var(--mono);text-align:center;color:var(--text2)">' + (p.months||1) + ' mo</td>' +
+          '<td style="font-family:var(--mono);color:var(--yellow);font-weight:700">' + fmtMoney(p.total||0) + '</td>' +
+          '<td style="font-family:var(--mono);font-size:11px;color:var(--text3)">' + d + '</td>' +
+          '<td style="font-size:11px;color:var(--text3)">' + escHtml(p.approved_by||'-') + '</td>' +
           '</tr>'
       }).join('')
     }
   }
 }
 
+// ── Activity log ───────────────────────────────────────────────────────────
 function renderActivityLog() {
   const el = document.getElementById('activity-log')
   if (!el) return
   el.innerHTML = activityLog.length === 0
     ? '<div style="color:var(--text3);padding:20px;text-align:center">No activity yet</div>'
     : activityLog.map(a => `<div style="padding:8px 12px;border-bottom:1px solid var(--border)">
-        <span style="color:var(--text3)">[${a.ts}]</span>
-        <span style="margin-left:10px">${a.msg}</span>
+        <span style="color:var(--text3)">[${escHtml(a.ts)}]</span>
+        <span style="margin-left:10px">${escHtml(a.msg)}</span>
       </div>`).join('')
 }
 
 function clearLog() {
+  if (!confirm('ลบ Activity Log ทั้งหมด?')) return
   activityLog = []
   renderActivityLog()
+  showToast('Cleared activity log')
 }
 
-// ── Approve ───────────────────────────────────────────────────────────────
-let _actionEmail = '', _actionName = ''
-
+// ── Approve ────────────────────────────────────────────────────────────────
 function openApprove(email, name) {
-  _actionEmail = decodeURIComponent(email); _actionName = name
+  _actionEmail = decodeURIComponent(email).toLowerCase()
+  _actionName  = name
   document.getElementById('approve-shop-name').textContent = name
   document.getElementById('approve-months').value = '1'
   const emailGroup = document.getElementById('approve-email-group')
-  if(emailGroup) emailGroup.style.display = 'none'
+  if (emailGroup) emailGroup.style.display = 'none'
+  updateApprovePreview()
   document.getElementById('modal-approve').classList.add('show')
 }
 
@@ -877,12 +955,28 @@ function openManualApprove() {
   document.getElementById('approve-shop-name').textContent = '(กรอก Email ด้านล่าง)'
   document.getElementById('approve-months').value = '1'
   const emailGroup = document.getElementById('approve-email-group')
-  if(emailGroup) { emailGroup.style.display='block'; document.getElementById('approve-email-input').value='' }
+  if (emailGroup) { emailGroup.style.display = 'block'; document.getElementById('approve-email-input').value = '' }
+  updateApprovePreview()
   document.getElementById('modal-approve').classList.add('show')
 }
 
+function updateApprovePreview() {
+  const months = parseInt(document.getElementById('approve-months')?.value) || 1
+  const price  = getBasicPrice()
+  const total  = price * months
+  const preview = document.getElementById('approve-price-preview')
+  if (preview) {
+    preview.style.display = 'block'
+    preview.textContent = `฿${price} × ${months} เดือน = ฿${total.toLocaleString()}`
+  }
+}
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'approve-months') updateApprovePreview()
+})
+
 async function confirmApprove() {
-  const months = parseInt(document.getElementById('approve-months').value) || 1
+  const months     = parseInt(document.getElementById('approve-months').value) || 1
   const emailInput = document.getElementById('approve-email-input')
   if (!_actionEmail && emailInput && emailInput.value.trim()) {
     _actionEmail = emailInput.value.trim().toLowerCase()
@@ -890,7 +984,8 @@ async function confirmApprove() {
   }
   if (!_actionEmail) { showToast('กรุณากรอก Email', 'var(--orange)'); return }
 
-  const price = getBasicPrice()   // ราคาจาก Settings
+  const price = getBasicPrice()
+  showLoading(true)
   try {
     const now       = Date.now()
     const subExpiry = now + months * 31 * 24 * 60 * 60 * 1000
@@ -903,37 +998,37 @@ async function confirmApprove() {
       {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
     )
     const rows = await getRes.json()
-    const shopData = (Array.isArray(rows)&&rows[0]?.data)||{}
+    const shopData = (Array.isArray(rows) && rows[0]?.data) || {}
     shopData.trialData = {
       ...(shopData.trialData||{}),
       subscribed:true, suspended:false,
       subStart:now, subExpiry, status:'basic', pendingApproval:false
     }
-    await fetch(SUPABASE_URL+'/rest/v1/shop_data',{
+    await fetch(SUPABASE_URL+'/rest/v1/shop_data', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
                'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({shop_id:_actionEmail,data:shopData,updated_at:new Date().toISOString()})
+      body: JSON.stringify({shop_id: _actionEmail, data: shopData, updated_at: new Date().toISOString()})
     })
 
     // 2. update subscriptions table
-    await fetch(SUPABASE_URL+'/rest/v1/subscriptions',{
+    await fetch(SUPABASE_URL+'/rest/v1/subscriptions', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
                'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({
-        shop_id:_actionEmail, status:'basic',
-        effective_date:effDate, expiration_date:expDate,
-        updated_at:new Date().toISOString()
+      body: JSON.stringify({
+        shop_id: _actionEmail, status:'basic',
+        effective_date: effDate, expiration_date: expDate,
+        updated_at: new Date().toISOString()
       })
     })
 
-    // 3. บันทึก payment record
-    await fetch(SUPABASE_URL+'/rest/v1/payments',{
+    // 3. payment record
+    await fetch(SUPABASE_URL+'/rest/v1/payments', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
                'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({
+      body: JSON.stringify({
         shop_id:     _actionEmail,
         shop_name:   _actionName,
         plan:        'basic',
@@ -947,58 +1042,70 @@ async function confirmApprove() {
     })
 
     logActivity('Approved Basic ('+months+'mo ฿'+price+'×'+months+'=฿'+(price*months)+') for '+_actionName+' ('+_actionEmail+')')
-    showToast('Approved '+_actionName+' — Basic '+months+' month(s) ฿'+(price*months))
-    closeModal('approve'); renderAll()
-  } catch(e) { showToast('Error: '+e.message, 'var(--red)') }
+    showToast('✅ Approved '+_actionName+' — Basic '+months+' month(s) ฿'+(price*months))
+    closeModal('approve')
+    renderAll()
+  } catch(e) {
+    showToast('Error: '+e.message, 'var(--red)')
+  } finally {
+    showLoading(false)
+  }
 }
 
-// ── Suspend ───────────────────────────────────────────────────────────────
+// ── Suspend ────────────────────────────────────────────────────────────────
 function openSuspend(email, name) {
-  _actionEmail = decodeURIComponent(email); _actionName = name
+  _actionEmail = decodeURIComponent(email).toLowerCase()
+  _actionName  = name
   document.getElementById('suspend-shop-name').textContent = name
   document.getElementById('modal-suspend').classList.add('show')
 }
 
 async function confirmSuspend() {
+  showLoading(true)
   try {
-    // 1. update shop_data.trialData
     const getRes = await fetch(
       SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(_actionEmail)+'&select=data',
       {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
     )
     const rows = await getRes.json()
-    const shopData = (Array.isArray(rows)&&rows[0]?.data)||{}
+    const shopData = (Array.isArray(rows) && rows[0]?.data) || {}
     shopData.trialData = {
       ...(shopData.trialData||{}),
       subscribed:false, suspended:true, status:'trial'
     }
-    await fetch(SUPABASE_URL+'/rest/v1/shop_data',{
+    await fetch(SUPABASE_URL+'/rest/v1/shop_data', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
                'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({shop_id:_actionEmail,data:shopData,updated_at:new Date().toISOString()})
+      body: JSON.stringify({shop_id: _actionEmail, data: shopData, updated_at: new Date().toISOString()})
     })
 
-    // 2. update subscriptions table
-    await fetch(SUPABASE_URL+'/rest/v1/subscriptions',{
+    await fetch(SUPABASE_URL+'/rest/v1/subscriptions', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
                'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({
-        shop_id:_actionEmail, status:'trial',
-        expiration_date:new Date().toISOString(),
-        updated_at:new Date().toISOString()
+      body: JSON.stringify({
+        shop_id: _actionEmail, status:'suspended',
+        expiration_date: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       })
     })
 
     logActivity('Suspended '+_actionName+' ('+_actionEmail+')')
-    showToast('Suspended '+_actionName, 'var(--red)')
-    closeModal('suspend'); renderAll()
-  } catch(e) { showToast('Error: '+e.message, 'var(--red)') }
+    showToast('🚫 Suspended '+_actionName, 'var(--red)')
+    closeModal('suspend')
+    renderAll()
+  } catch(e) {
+    showToast('Error: '+e.message, 'var(--red)')
+  } finally {
+    showLoading(false)
+  }
 }
-// ── Reset Password ────────────────────────────────────────────────────────
+
+// ── Reset Password ─────────────────────────────────────────────────────────
 function openReset(email, name) {
-  _actionEmail = decodeURIComponent(email); _actionName = name
+  _actionEmail = decodeURIComponent(email).toLowerCase()
+  _actionName  = name
   document.getElementById('reset-shop-name').textContent = name
   document.getElementById('reset-new-pass').value = ''
   document.getElementById('modal-reset').classList.add('show')
@@ -1008,45 +1115,48 @@ async function hashPasswordAdmin(password) {
   const encoder = new TextEncoder()
   const data    = encoder.encode(password)
   const hash    = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('')
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('')
 }
 
 async function confirmReset() {
   const newPass = document.getElementById('reset-new-pass').value.trim()
-  if (!newPass || newPass.length < 8) { showToast('Password ต้องมีอย่างน้อย 8 ตัวอักษร', 'var(--orange)'); return }
+  if (!newPass || newPass.length < 8) {
+    showToast('Password ต้องมีอย่างน้อย 8 ตัวอักษร', 'var(--orange)'); return
+  }
+  showLoading(true)
   try {
-    // Hash password ก่อน save
     const hashedPass = await hashPasswordAdmin(newPass)
 
-    // ดึง shop_data แล้ว update userInfo.password
     const getRes = await fetch(
       SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(_actionEmail)+'&select=data',
       {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
     )
     const rows = await getRes.json()
     if (!Array.isArray(rows) || rows.length === 0) {
-      showToast('ไม่พบ user นี้ใน Supabase', 'var(--orange)'); return
+      showToast('ไม่พบ user นี้ใน Supabase', 'var(--orange)'); showLoading(false); return
     }
     const shopData = rows[0].data || {}
     if (!shopData.userInfo) shopData.userInfo = {}
     shopData.userInfo.password = hashedPass
 
     await fetch(SUPABASE_URL+'/rest/v1/shop_data', {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON, 'Authorization': 'Bearer '+SUPABASE_ANON,
-        'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({ shop_id: _actionEmail, data: shopData, updated_at: new Date().toISOString() })
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
+               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+      body: JSON.stringify({shop_id: _actionEmail, data: shopData, updated_at: new Date().toISOString()})
     })
 
-    logActivity('Reset password for ' + _actionName + ' (' + _actionEmail + ')')
-    showToast('Reset password สำเร็จ — ' + _actionName)
+    logActivity('Reset password for '+_actionName+' ('+_actionEmail+')')
+    showToast('🔑 Reset password สำเร็จ — '+_actionName)
     closeModal('reset')
-  } catch(e) { showToast('Error: ' + e.message, 'var(--red)') }
+  } catch(e) {
+    showToast('Error: '+e.message, 'var(--red)')
+  } finally {
+    showLoading(false)
+  }
 }
 
-// ── Modal helpers ─────────────────────────────────────────────────────────
+// ── Modal helpers ──────────────────────────────────────────────────────────
 function closeModal(id) {
   document.getElementById('modal-' + id).classList.remove('show')
 }
@@ -1054,7 +1164,7 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show') })
 })
 
-// ── Toast ─────────────────────────────────────────────────────────────────
+// ── Toast ──────────────────────────────────────────────────────────────────
 function showToast(msg, color='var(--green)') {
   const t = document.getElementById('toast')
   t.textContent = msg; t.style.color = color; t.style.opacity = '1'
@@ -1062,9 +1172,28 @@ function showToast(msg, color='var(--green)') {
   t._to = setTimeout(() => t.style.opacity = '0', 3500)
 }
 
-// ── Keyboard ──────────────────────────────────────────────────────────────
+// ── Keyboard ───────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'))
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'))
+  }
+})
+
+// ── Event delegation สำหรับปุ่ม Approve/Suspend/Reset ─────────────────────
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('[data-action]')
+  if (!btn) return
+  const email  = btn.getAttribute('data-email')
+  const action = btn.getAttribute('data-action')
+  if (!email || !action) return
+
+  const shop = _cachedShops.find(s => encodeURIComponent(s.email) === email) ||
+               getAllShopsLocal().find(s => encodeURIComponent(s.email) === email)
+  const name = shop ? (shop.shop || shop.email) : decodeURIComponent(email)
+
+  if (action === 'approve') openApprove(email, name)
+  else if (action === 'suspend') openSuspend(email, name)
+  else if (action === 'reset') openReset(email, name)
 })
 </script>
 </body>
