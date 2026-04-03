@@ -303,6 +303,43 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
       </div>
     </div>
 
+    <!-- ── Settings Tab ── -->
+    <div id="tab-settings" class="tab-content" style="display:none">
+      <div class="panel" style="max-width:700px">
+        <div class="panel-head"><span class="panel-title">⚙️ Subscription Settings</span></div>
+        <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0">
+          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">💰 Pricing</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <label style="font-size:12px;color:var(--text2);width:160px">Basic Plan (฿/เดือน)</label>
+              <input type="number" id="cfg-basic-price" value="199" min="0" style="width:100px;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <label style="font-size:12px;color:var(--text2);width:160px">Trial Period (วัน)</label>
+              <input type="number" id="cfg-trial-days" value="7" min="1" max="30" style="width:100px;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
+            </div>
+          </div>
+          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">🏦 บัญชีรับเงิน</div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <label style="font-size:12px;color:var(--text2);width:160px">PromptPay / เบอร์</label>
+              <input type="text" id="cfg-promptpay" placeholder="0812345678" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <label style="font-size:12px;color:var(--text2);width:160px">ชื่อบัญชี</label>
+              <input type="text" id="cfg-account-name" placeholder="ชื่อ-นามสกุล" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px">
+            </div>
+          </div>
+          <button class="btn-sm btn-approve" onclick="saveAdminConfig()" style="width:100%;padding:10px;font-size:13px">💾 บันทึกการตั้งค่า</button>
+          <div id="cfg-save-msg" style="text-align:center;font-size:12px;color:var(--green);display:none">✅ บันทึกแล้ว</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end .main -->
+</div><!-- end #appScreen -->
+
+<!-- ══════ MODALS (outside appScreen) ══════ -->
 <!-- ── Approve Modal ── -->
 <div class="modal-overlay" id="modal-approve">
   <div class="modal">
@@ -351,51 +388,6 @@ select.filter{padding:10px 14px;background:var(--bg3);border:1px solid var(--bor
     </div>
   </div>
 </div>
-
-    <!-- ── Settings Tab ── -->
-    <div id="tab-settings" class="tab-content" style="display:none">
-      <div class="panel" style="max-width:700px">
-        <div class="panel-head"><span class="panel-title">⚙️ Subscription Settings</span></div>
-        <div style="display:flex;flex-direction:column;gap:16px;padding:4px 0">
-          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">💰 Pricing</div>
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-              <label style="font-size:12px;color:var(--text2);width:160px">Basic Plan (฿/เดือน)</label>
-              <input type="number" id="cfg-basic-price" value="199" min="0" style="width:100px;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
-            </div>
-            <div style="display:flex;align-items:center;gap:12px">
-              <label style="font-size:12px;color:var(--text2);width:160px">Trial Period (วัน)</label>
-              <input type="number" id="cfg-trial-days" value="7" min="1" max="30" style="width:100px;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
-            </div>
-          </div>
-          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">🏦 บัญชีรับเงิน</div>
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-              <label style="font-size:12px;color:var(--text2);width:160px">PromptPay / เบอร์</label>
-              <input type="text" id="cfg-promptpay" placeholder="0812345678" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
-            </div>
-            <div style="display:flex;align-items:center;gap:12px">
-              <label style="font-size:12px;color:var(--text2);width:160px">ชื่อบัญชี</label>
-              <input type="text" id="cfg-account-name" placeholder="ชื่อ-นามสกุล" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px">
-            </div>
-          </div>
-          <div style="background:var(--bg2);border-radius:10px;padding:16px;border:1px solid var(--border)">
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🧾 EasySlip API</div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:12px">API Key สำหรับ validate สลิปอัตโนมัติ</div>
-            <div style="display:flex;align-items:center;gap:12px">
-              <label style="font-size:12px;color:var(--text2);width:160px">API Key</label>
-              <input type="password" id="cfg-easyslip-key" placeholder="ESK_xxxxxxxxxxxx" style="flex:1;padding:6px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:13px;font-family:var(--mono)">
-              <button onclick="toggleCfgKey()" style="background:transparent;border:1px solid var(--border2);border-radius:6px;padding:6px 10px;cursor:pointer;color:var(--text2);font-size:12px">👁</button>
-            </div>
-          </div>
-          <button class="btn-sm btn-approve" onclick="saveAdminConfig()" style="width:100%;padding:10px;font-size:13px">💾 บันทึกการตั้งค่า</button>
-          <div id="cfg-save-msg" style="text-align:center;font-size:12px;color:var(--green);display:none">✅ บันทึกแล้ว</div>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- end .main -->
-</div><!-- end #appScreen -->
 
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
@@ -660,7 +652,6 @@ async function saveAdminConfig() {
     trialDays:   parseInt(document.getElementById('cfg-trial-days')?.value)  || 7,
     promptpay:   document.getElementById('cfg-promptpay')?.value?.trim()     || '',
     accountName: document.getElementById('cfg-account-name')?.value?.trim()  || '',
-    easyslipKey: document.getElementById('cfg-easyslip-key')?.value?.trim()  || '',
   }
   // บันทึก localStorage
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)) } catch(e) {}
@@ -689,10 +680,6 @@ async function saveAdminConfig() {
   showToast('✅ บันทึกการตั้งค่าแล้ว')
 }
 
-function toggleCfgKey() {
-  const inp = document.getElementById('cfg-easyslip-key')
-  if(inp) inp.type = inp.type === 'password' ? 'text' : 'password'
-}
 
 function getBasicPrice() {
   return window.BASIC_PRICE_DYNAMIC || BASIC_PRICE
@@ -974,67 +961,6 @@ async function confirmApprove() {
   } catch(e) { showToast('Error: '+e.message, 'var(--red)') }
 }
 
-function openManualApprove() {
-  _actionEmail = ''
-  _actionName  = 'Manual Entry'
-  document.getElementById('approve-shop-name').textContent = '(กรอก Email ด้านล่าง)'
-  document.getElementById('approve-months').value = '1'
-  const emailGroup = document.getElementById('approve-email-group')
-  if(emailGroup) { emailGroup.style.display='block'; document.getElementById('approve-email-input').value='' }
-  document.getElementById('modal-approve').classList.add('show')
-}
-
-async function confirmApprove() {
-  const months = parseInt(document.getElementById('approve-months').value) || 1
-  // ถ้า manual approve ให้ดึง email จาก input
-  const emailInput = document.getElementById('approve-email-input')
-  if (!_actionEmail && emailInput && emailInput.value.trim()) {
-    _actionEmail = emailInput.value.trim().toLowerCase()
-    _actionName  = _actionEmail
-  }
-  if (!_actionEmail) { showToast('กรุณากรอก Email', 'var(--orange)'); return }
-  try {
-    const now      = Date.now()
-    const subExpiry = now + months * 31 * 24 * 60 * 60 * 1000
-    const effDate  = new Date(now).toISOString()
-    const expDate  = new Date(subExpiry).toISOString()
-
-    // 1. update shop_data.trialData
-    const getRes = await fetch(
-      SUPABASE_URL+'/rest/v1/shop_data?shop_id=eq.'+encodeURIComponent(_actionEmail)+'&select=data',
-      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}
-    )
-    const rows = await getRes.json()
-    const shopData = (Array.isArray(rows)&&rows[0]?.data)||{}
-    shopData.trialData = {
-      ...(shopData.trialData||{}),
-      subscribed:true, suspended:false,
-      subStart:now, subExpiry, status:'basic', pendingApproval:false
-    }
-    await fetch(SUPABASE_URL+'/rest/v1/shop_data',{
-      method:'POST',
-      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
-               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({shop_id:_actionEmail,data:shopData,updated_at:new Date().toISOString()})
-    })
-
-    // 2. update subscriptions table
-    await fetch(SUPABASE_URL+'/rest/v1/subscriptions',{
-      method:'POST',
-      headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON,
-               'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify({
-        shop_id:_actionEmail, status:'basic',
-        effective_date:effDate, expiration_date:expDate,
-        updated_at:new Date().toISOString()
-      })
-    })
-
-    logActivity('Approved Basic ('+months+'mo) for '+_actionName+' ('+_actionEmail+')')
-    showToast('Approved '+_actionName+' — Basic '+months+' month(s)')
-    closeModal('approve'); renderAll()
-  } catch(e) { showToast('Error: '+e.message, 'var(--red)') }
-}
 // ── Suspend ───────────────────────────────────────────────────────────────
 function openSuspend(email, name) {
   _actionEmail = decodeURIComponent(email); _actionName = name
