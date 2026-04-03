@@ -419,70 +419,62 @@ let activityLog = []
 let _cachedShops = []
 let _cachedUsers  = {}   // email → user obj
 
-async function sbLoadUsers() {
-  try {
-    const { data, error } = await getSB().from('users').select('*')
-    if (error) throw error
-    _cachedUsers = {}
-    ;(data||[]).forEach(u => { _cachedUsers[u.email] = u })
-    return _cachedUsers
-  } catch(e) { console.warn('sbLoadUsers failed:', e); return {} }
-}
-
 async function loadShopsFromSupabase() {
   try {
-    // โหลด users และ shop_data พร้อมกัน
-    const [usersResult, shopsResult] = await Promise.all([
-      getSB().from('users').select('*'),
-      getSB().from('shop_data').select('shop_id, data, updated_at').order('updated_at', { ascending: false })
+    // ดึง shop_data + subscriptions พร้อมกัน
+    const [shopRes, subRes] = await Promise.all([
+      fetch(SUPABASE_URL+'/rest/v1/shop_data?select=shop_id,data,updated_at&order=updated_at.desc',
+        {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}}),
+      fetch(SUPABASE_URL+'/rest/v1/subscriptions?select=*',
+        {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+SUPABASE_ANON}})
     ])
+    const rows   = await shopRes.json()
+    const subs   = await subRes.json()
 
-    // build users map
-    _cachedUsers = {}
-    ;(usersResult.data||[]).forEach(u => { _cachedUsers[u.email] = u })
+    // map subscriptions โดย email
+    const subMap = {}
+    ;(Array.isArray(subs)?subs:[]).forEach(s => { subMap[s.shop_id] = s })
 
-    // build shops from shop_data (users ที่มีข้อมูลแล้ว)
     const shopMap = {}
-    ;(shopsResult.data||[])
+    ;(Array.isArray(rows)?rows:[])
       .filter(row => row.shop_id !== SUPER_ADMIN.email)
       .forEach(row => {
-        const d = row.data || {}
-        const trial = d.trialData || null
-        shopMap[row.shop_id] = {
-          email:     row.shop_id,
-          shop:      d.shopName || _cachedUsers[row.shop_id]?.shop || row.shop_id.split('@')[0],
-          name:      _cachedUsers[row.shop_id]?.name || '',
-          cards:     (d.cards||[]).length,
-          orders:    (d.orders||[]).length,
-          purchases: (d.purchases||[]).length,
-          trial, status: getStatus(trial),
-          subExpiry: trial?.subExpiry||null,
-          subStart:  trial?.subStart||null,
-          registered: trial?.start || (usersResult.data||[]).find(u=>u.email===row.shop_id)?.created_at || null,
+        const d   = row.data || {}
+        const ui  = d.userInfo || {}
+        const sub = subMap[row.shop_id] || null
+        // คำนวณ status จาก subscriptions table ก่อน
+        let status = 'trial'
+        let subExpiry = null, subStart = null
+        if (sub) {
+          const expiry = sub.expiration_date ? new Date(sub.expiration_date).getTime() : null
+          if (sub.status === 'basic' && expiry && expiry > Date.now()) {
+            status = 'basic'; subExpiry = expiry
+            subStart = sub.effective_date ? new Date(sub.effective_date).getTime() : null
+          } else if (sub.status === 'suspended') {
+            status = 'suspended'
+          } else {
+            status = 'trial'
+          }
         }
-      })
-
-    // เพิ่ม users ที่สมัครแล้ว แต่ยังไม่มี shop_data (ยังไม่เคย save)
-    ;(usersResult.data||[])
-      .filter(u => u.email !== SUPER_ADMIN.email && !shopMap[u.email])
-      .forEach(u => {
-        shopMap[u.email] = {
-          email:    u.email,
-          shop:     u.shop || u.email.split('@')[0],
-          name:     u.name || '',
-          cards: 0, orders: 0, purchases: 0,
-          trial: null, status: 'trial',
-          subExpiry: null, subStart: null,
-          registered: u.created_at || null,
+        shopMap[row.shop_id] = {
+          email:      row.shop_id,
+          shop:       ui.shop || d.shopName || row.shop_id.split('@')[0],
+          name:       ui.name || '',
+          cards:      (d.cards||[]).length,
+          orders:     (d.orders||[]).length,
+          purchases:  (d.purchases||[]).length,
+          trial:      d.trialData || null,
+          status, subExpiry, subStart,
+          registered: d.trialData?.start || null,
         }
       })
 
     _cachedShops = Object.values(shopMap)
-      .sort((a,b) => new Date(b.registered||0) - new Date(a.registered||0))
+      .sort((a,b) => (b.registered||0) - (a.registered||0))
     return _cachedShops
   } catch(e) {
-    console.warn('Supabase load failed, fallback localStorage:', e)
-    return getAllShopsLocal()
+    console.warn('loadShopsFromSupabase failed:', e)
+    return []
   }
 }
 
@@ -609,8 +601,7 @@ function switchTab(id, el) {
   if(id === 'settings') loadAdminConfig()
 }
 
-// ── Render All ───────────────────────────────────────────────────────────
-async // ── Admin Config ─────────────────────────────────────────────────────────────
+// ── Admin Config ─────────────────────────────────────────────────────────────
 const CFG_KEY = 'cardestco_admin_config'
 
 async function loadAdminConfig() {
